@@ -366,6 +366,17 @@ pip install "sheeprl[atari,box2d,mujoco,dev,test] @ git+https://github.com/Eclec
 >
 > **MineRL** and **MineDojo** environments have **conflicting requirements**, so **DO NOT install them together** with the `pip install sheeprl[minerl,minedojo]` command, but instead **install them individually** with either the command `pip install sheeprl[minerl]` or `pip install sheeprl[minedojo]` before running an experiment with the MineRL or MineDojo environment, respectively. 
 
+#### Additional: Robomimic
+
+To run experiments in robomimic please install robomimic and robosuite as follows: 
+```
+pip install robosuite==1.4.1
+git clone https://github.com/ARISE-Initiative/robomimic.git
+cd robomimic
+pip install -e .
+cd ..
+```
+
 ### Run an experiment with SheepRL
 
 Now you can use one of the already available algorithms, or create your own.
