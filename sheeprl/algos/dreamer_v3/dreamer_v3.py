@@ -381,7 +381,9 @@ def main(fabric: Fabric, cfg: Dict[str, Any]):
     fabric.print(f"Log dir: {log_dir}")
 
     # Environment setup
-    vectorized_env = gym.vector.SyncVectorEnv if cfg.env.sync_env else gym.vector.AsyncVectorEnv
+    # vectorized_env = gym.vector.SyncVectorEnv if cfg.env.sync_env else gym.vector.AsyncVectorEnv
+    vectorized_env = gym.vector.SyncVectorEnv # if cfg.env.sync_env else gym.vector.AsyncVectorEnv
+    # import pdb; pdb.set_trace()
     envs = vectorized_env(
         [
             partial(

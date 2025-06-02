@@ -6,6 +6,7 @@ import cv2
 import gymnasium as gym
 import hydra
 import numpy as np
+from sheeprl.envs.robosuite import RobosuiteEnv
 
 from sheeprl.envs.wrappers import (
     ActionRepeat,
@@ -56,6 +57,9 @@ def make_env(
         except Exception:
             env_spec = ""
 
+        # import pdb; pdb.set_trace()
+
+        # Existing logic for other envs
         if "diambra" in cfg.env.wrapper._target_ and not cfg.env.sync_env:
             if cfg.env.wrapper.diambra_settings.pop("splash_screen", True):
                 warnings.warn(
@@ -65,13 +69,30 @@ def make_env(
                 )
             cfg.env.wrapper.diambra_settings.splash_screen = False
 
-        instantiate_kwargs = {}
-        if "seed" in cfg.env.wrapper:
-            instantiate_kwargs["seed"] = seed
-        if "rank" in cfg.env.wrapper:
-            instantiate_kwargs["rank"] = rank + vector_env_idx
-        env = hydra.utils.instantiate(cfg.env.wrapper, **instantiate_kwargs, _convert_="all")
+        # instantiate_kwargs = {}
+        # if "seed" in cfg.env.wrapper:
+        #     instantiate_kwargs["seed"] = seed
+        # if "rank" in cfg.env.wrapper:
+        #     instantiate_kwargs["rank"] = rank + vector_env_idx
+        # env = hydra.utils.instantiate(cfg.env.wrapper, **instantiate_kwargs, _convert_="all")
+        # import pdb; pdb.set_trace()
+        if cfg.env.type == "robosuite":
+            env = RobosuiteEnv(
+                env_name=cfg.env.env_name,
+                camera_names=cfg.env.camera_names,
+                camera_height=cfg.env.screen_size,
+                camera_width=cfg.env.screen_size,
+                frame_stack=cfg.env.frame_stack
+            )
+        else:
+            instantiate_kwargs = {}
+            if "seed" in cfg.env.wrapper:
+                instantiate_kwargs["seed"] = seed
+            if "ls rank" in cfg.env.wrapper:
+                instantiate_kwargs["rank"] = rank + vector_env_idx
+            env = hydra.utils.instantiate(cfg.env.wrapper, **instantiate_kwargs, _convert_="all")
 
+        # import pdb; pdb.set_trace()
         # action repeat
         if (
             cfg.env.action_repeat > 1
