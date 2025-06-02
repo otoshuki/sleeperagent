@@ -1,0 +1,3 @@
+[submodule "ZeroNVS"]
+	path = ZeroNVS
+	url = https://github.com/otoshuki/ZeroNVS
