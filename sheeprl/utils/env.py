@@ -6,7 +6,7 @@ import cv2
 import gymnasium as gym
 import hydra
 import numpy as np
-from sheeprl.envs.robosuite import RobosuiteEnv
+from sheeprl.envs.robosuite_env import RobosuiteEnv
 
 from sheeprl.envs.wrappers import (
     ActionRepeat,
@@ -82,7 +82,8 @@ def make_env(
                 camera_names=cfg.env.camera_names,
                 camera_height=cfg.env.screen_size,
                 camera_width=cfg.env.screen_size,
-                frame_stack=cfg.env.frame_stack
+                frame_stack=cfg.env.frame_stack,
+                render_mode=cfg.env.render_mode,
             )
         else:
             instantiate_kwargs = {}

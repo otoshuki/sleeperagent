@@ -624,6 +624,8 @@ def main(fabric: Fabric, cfg: Dict[str, Any]):
             if "final_observation" in infos:
                 for idx, final_obs in enumerate(infos["final_observation"]):
                     if final_obs is not None:
+                        # print(f"realnextobs:{real_next_obs.keys()}")
+                        # print(f"finalobs:{final_obs.keys()}")
                         for k, v in final_obs.items():
                             real_next_obs[k][idx] = v
 
