@@ -7,7 +7,7 @@ robots: Panda
 use_image_obs: True
 render_mode: rgb_array
 camera_names: []  # Placeholder, overridden in experiment configs
-screen_size: 128
+screen_size: 64 #128
 frame_stack: 5 
 action_repeat: 1  # Minimal repetition; increase to 2-4 for faster control if needed
 max_episode_steps: 200  # Typical for robosuite
@@ -19,4 +19,7 @@ actions_as_observation:
   num_stack: 0
 reward_as_observation: False
 frame_stack_dilation: 1  # Required if frame_stack > 1
-num_envs: 4  # Single environment for simplicity
+num_envs: 4
+fabric:
+  accelerator: gpu
+  precision: bf16-mixed
