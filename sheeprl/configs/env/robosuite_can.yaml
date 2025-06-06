@@ -2,7 +2,7 @@ id: robosuite_Can
 type: robosuite
 env_name: PickPlaceCan
 wrapper:
-  _target_: sheeprl.envs.robosuite.RobosuiteEnv
+  _target_: sheeprl.envs.robosuite_env.RobosuiteEnv
 robots: Panda
 use_image_obs: True
 render_mode: rgb_array

@@ -1,12 +1,18 @@
+# @package _global_
+
 defaults:
   - override /algo: dreamer_v3_S
-  - override /env: robosuite_can_wrist
+  - override /env: robosuite_can
   - _self_
 
 env:
   id: robosuite_Can
   capture_video: True
   frame_stack: 5
+  num_envs: 1
+  render_mode: 0
+
+seed: 1
 
 algo:
   cnn_keys:
@@ -24,7 +30,14 @@ buffer:
   size: 500000
   checkpoint: True
 
+fabric:
+  accelerator: gpu
+  precision: bf16-mixed
+  # strategy: ddp
+  # devices: 4
+
 metric:
+  log_every: 1000
   aggregator:
     metrics:
       Loss/world_model_loss:

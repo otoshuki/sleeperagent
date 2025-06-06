@@ -15,21 +15,21 @@ class RobosuiteEnv(Env):
                 "rgb": ["agentview_image", "robot0_eye_in_hand_image"],
                 "low_dim": [
                     "robot0_eef_pos",
-                    "robot0_eef_quat", 
+                    "robot0_eef_quat",
                     "robot0_gripper_qpos",
                     "object"
                 ]
             }
         }
         ObsUtils.initialize_obs_utils_with_obs_specs(obs_specs)
-        
+
         # Configure robomimic environment with both cameras
         self.env = EnvRobosuite(
             env_name=env_name,
             robots="Panda",
             controller_configs={
-                "type": "OSC_POSE", 
-                "interpolation": "linear", 
+                "type": "OSC_POSE",
+                "interpolation": "linear",
                 "ramp_ratio": 0.6
             },
             use_image_obs=True,
@@ -42,13 +42,13 @@ class RobosuiteEnv(Env):
             has_offscreen_renderer=True,
             ignore_done=False,
             control_freq=20,
-            render_gpu_device_id=4
+            render_gpu_device_id=0,
         )
-        
+
         self.render_mode = "rgb_array"
         self.frame_stack = frame_stack
         self.camera_names = camera_names
-        
+
         # Set observation space shape based on channels_first
         if self.observation_type == "rgb_concat":
             camera_width *= 2  # Double the width for concatenation
@@ -79,6 +79,9 @@ class RobosuiteEnv(Env):
             low=-1.0, high=1.0, shape=(action_dim,), dtype=np.float32
         )
 
+        #Set render mode: 0 is 1st person, 1 is 3rd person
+        # self.render_mode = render_mode
+
     def step(self, action):
         obs, reward, terminated, info = self.env.step(action)
         truncated = info.get("TimeLimit.truncated", False)
@@ -91,7 +94,7 @@ class RobosuiteEnv(Env):
         processed_obs = self._process_observations(obs)
         self._last_obs = processed_obs
         return processed_obs, {}
-    
+
     def _process_observations(self, obs):
         image_keys = [k for k in obs.keys() if 'image' in k.lower()]
         
