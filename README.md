@@ -1,4 +1,8 @@
-# ⚡ SheepRL 🐑
+### Updates
+* Added the full pip list combining sheeprl and zeronvs to work together.
+* Also ended environment.yaml file. Create the conda env using `conda env create -f environment.yaml`
+
+## ⚡ SheepRL 🐑
 
 [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380/)
 [![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-390/)
@@ -181,9 +185,9 @@ The training times of our implementations compared to the ones of Stable Baselin
 > [!NOTE]
 >
 > All experiments have been run on 4 CPUs in [Lightning Studio](https://lightning.ai/).
-> All benchmarks, but the Dreamers' ones, have been run 5 times and we have taken the mean and the std of the runs. 
+> All benchmarks, but the Dreamers' ones, have been run 5 times and we have taken the mean and the std of the runs.
 > We have disabled the test function, the logging, and the checkpoints. Moreover, the models were not registered using MLFlow.
-> 
+>
 > Dreamers' benchmarks have been run 1 time with logging and checkpoints, without running the test function.
 >
 > 1. The StableBaselines3 version is `v2.2.1`, please install the package with `pip install stable-baselines3==2.2.1`
@@ -272,7 +276,7 @@ pip install sheeprl
 ```
 
 > [!NOTE]
-> 
+>
 > To install optional dependencies one can run for example `pip install sheeprl[atari,box2d,dev,mujoco,test]`
 
 For a detailed information about all the optional dependencies you can install please have a look at the [What](#what) section
@@ -293,7 +297,7 @@ pip install .
 ```
 
 > [!NOTE]
-> 
+>
 > To install optional dependencies one can run for example `pip install .[atari,box2d,dev,mujoco,test]`
 
 #### Installing the framework from the GitHub repo
@@ -339,7 +343,7 @@ pip install "sheeprl[box2d,atari,mujoco,minerl,supermario,dev,test] @ git+https:
 #### Additional: installing on an M-series Mac
 
 > [!CAUTION]
-> 
+>
 > If you are on an M-series Mac and encounter an error attributed box2dpy during installation, you need to install SWIG using the instructions shown below.
 
 
@@ -359,16 +363,16 @@ pip install "sheeprl[atari,box2d,mujoco,dev,test] @ git+https://github.com/Eclec
 #### Additional: MineRL and MineDojo
 
 > [!NOTE]
-> 
+>
 > If you want to install the *minedojo* or *minerl* environment support, Java JDK 8 is required: you can install it by following the instructions at this [link](https://docs.minedojo.org/sections/getting_started/install.html#on-ubuntu-20-04).
 
 > [!CAUTION]
 >
-> **MineRL** and **MineDojo** environments have **conflicting requirements**, so **DO NOT install them together** with the `pip install sheeprl[minerl,minedojo]` command, but instead **install them individually** with either the command `pip install sheeprl[minerl]` or `pip install sheeprl[minedojo]` before running an experiment with the MineRL or MineDojo environment, respectively. 
+> **MineRL** and **MineDojo** environments have **conflicting requirements**, so **DO NOT install them together** with the `pip install sheeprl[minerl,minedojo]` command, but instead **install them individually** with either the command `pip install sheeprl[minerl]` or `pip install sheeprl[minedojo]` before running an experiment with the MineRL or MineDojo environment, respectively.
 
 #### Additional: Robomimic
 
-To run experiments in robomimic please install robomimic and robosuite as follows: 
+To run experiments in robomimic please install robomimic and robosuite as follows:
 ```
 pip install robosuite==1.4.1
 git clone https://github.com/ARISE-Initiative/robomimic.git
@@ -410,7 +414,7 @@ if you have installed SheepRL from PyPi.
 That's all it takes to train an agent with SheepRL! 🎉
 
 > Before you start using the SheepRL framework, it is **highly recommended** that you read the following instructional documents:
-> 
+>
 > 1. How to [run experiments](https://github.com/Eclectic-Sheep/sheeprl/blob/main/howto/run_experiments.md)
 > 2. How to [modify the default configs](https://github.com/Eclectic-Sheep/sheeprl/blob/main/howto/configs.md)
 > 3. How to [work with steps](https://github.com/Eclectic-Sheep/sheeprl/blob/main/howto/work_with_steps.md)
