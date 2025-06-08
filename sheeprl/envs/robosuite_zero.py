@@ -4,9 +4,16 @@ from robomimic.envs.env_robosuite import EnvRobosuite
 import numpy as np
 import robomimic.utils.obs_utils as ObsUtils
 import cv2
+import sys
+import os
 
-class RobosuiteEnv(Env):
-    def __init__(self, env_name="PickPlaceCan", camera_names=["agentview", "robot0_eye_in_hand"], camera_height=32, camera_width=32, frame_stack=5, channels_first=True, observation_type="rgb_wrist"):
+sys.path.append(os.path.abspath("ZeroNVS"))
+from zero123gen import Zero123Generator
+
+class RobosuiteEnvZero(Env):
+    def __init__(self, env_name="PickPlaceCan", camera_names=["agentview", "robot0_eye_in_hand"],
+    camera_height=32, camera_width=32, frame_stack=5, channels_first=True, observation_type="rgb_wrist",
+    azm_degs = [20], guidance_scale=7.5, ddim_steps=20):
         super().__init__()
         self.channels_first = channels_first
         self.observation_type = observation_type
@@ -50,8 +57,17 @@ class RobosuiteEnv(Env):
         self.camera_names = camera_names
 
         # Set observation space shape based on channels_first
-        if self.observation_type == "rgb_concat":
-            camera_width *= 2  # Double the width for concatenation
+        if self.observation_type == "rgb_zero":
+            camera_width *= (1+len(azm_degs))  # Triple the width for concatenation
+            #Setup Zero123 Diffusion Model
+            device = "cuda"
+            config_path = "ZeroNVS/zeronvs_config.yaml"
+            ckpt_path = "ZeroNVS/zeronvs.ckpt"
+            precomputed_scale = 1.2
+            self.generator = Zero123Generator(config_path, ckpt_path, device, precomputed_scale)
+            self.azm_degs = azm_degs
+            self.guidance_scale = guidance_scale
+            self.ddim_steps = ddim_steps
 
         if self.channels_first:
             img_shape = (3, camera_height, camera_width)
@@ -66,7 +82,7 @@ class RobosuiteEnv(Env):
             self.observation_space = spaces.Dict({
                 "rgb_third": spaces.Box(0, 255, shape=img_shape, dtype=np.uint8)
             })
-        elif self.observation_type == "rgb_concat":
+        elif self.observation_type == "rgb_zero":
             self.observation_space = spaces.Dict({
                 "rgb_wrist": spaces.Box(0, 255, shape=img_shape, dtype=np.uint8),
                 "rgb_third": spaces.Box(0, 255, shape=img_shape, dtype=np.uint8)
@@ -78,9 +94,6 @@ class RobosuiteEnv(Env):
         self.action_space = spaces.Box(
             low=-1.0, high=1.0, shape=(action_dim,), dtype=np.float32
         )
-
-        #Set render mode: 0 is 1st person, 1 is 3rd person
-        # self.render_mode = render_mode
 
     def step(self, action):
         obs, reward, terminated, info = self.env.step(action)
@@ -102,7 +115,7 @@ class RobosuiteEnv(Env):
             fallback_shape = self.observation_space['rgb_wrist'].shape
         elif self.observation_type == "rgb_third":
             fallback_shape = self.observation_space['rgb_third'].shape
-        elif self.observation_type == "rgb_concat":
+        elif self.observation_type == "rgb_zero":
             fallback_shape = self.observation_space['rgb_third'].shape
         else:
             raise ValueError(f"Invalid observation_type: {self.observation_type}")
@@ -128,24 +141,29 @@ class RobosuiteEnv(Env):
                 elif arr.shape[0] == 3:
                     arr = np.transpose(arr, (1, 2, 0))
                 return arr
-
         wrist_img = convert_img(obs.get("robot0_eye_in_hand_image", None))
         third_img = convert_img(obs.get("agentview_image", None))
+        if self.observation_type == "rgb_zero":
+            img = self.generator.process_image(third_img)
+            #default camera distance and elv to be recomputed using camera pose
+            zero_latent = self.generator.generate_latents(img, azimuths_deg=self.azm_degs, default_elv=45.0, scale=self.guidance_scale, default_camera_distance=1.2, ddim_steps=self.ddim_steps)
+            zero_imgs = self.generator.decode_latents(zero_latent)
+            zero_img = zero_imgs[0]
 
         if self.observation_type == "rgb_wrist":
             return {"rgb_wrist": wrist_img}
         elif self.observation_type == "rgb_third":
             return {"rgb_third": third_img}
-        elif self.observation_type == "rgb_concat":
-            if wrist_img is None or third_img is None:
-                raise ValueError("Missing wrist or third-person view for rgb_concat.")
-            return {"rgb_wrist": wrist_img, "rgb_third": third_img}
+        elif self.observation_type == "rgb_zero":
+            if wrist_img is None or zero_img is None:
+                raise ValueError("Missing wrist or zero123 view for rgb_zero.")
+            return {"rgb_wrist": third_img, "rgb_third": zero_img}
         else:
             raise ValueError(f"Invalid observation_type: {self.observation_type}")
 
     def render(self, mode="rgb_array"):
         if hasattr(self, '_last_obs') and self._last_obs is not None:
-            if self.observation_type == "rgb_concat":
+            if self.observation_type == "rgb_zero":
                 wrist_img = self._last_obs.get("rgb_wrist", None)
                 third_img = self._last_obs.get("rgb_third", None)
                 if wrist_img is not None and third_img is not None:

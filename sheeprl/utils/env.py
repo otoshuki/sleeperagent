@@ -83,7 +83,7 @@ def make_env(
                 camera_height=cfg.env.screen_size,
                 camera_width=cfg.env.screen_size,
                 frame_stack=cfg.env.frame_stack,
-                observation_type=cfg.env.observation_type
+                observation_type=cfg.env.observation_type,
                 render_mode=cfg.env.render_mode,
             )
         else:
