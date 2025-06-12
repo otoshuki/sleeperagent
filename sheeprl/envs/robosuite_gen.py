@@ -3,17 +3,13 @@ from gymnasium import Env, spaces
 from robomimic.envs.env_robosuite import EnvRobosuite
 import numpy as np
 import robomimic.utils.obs_utils as ObsUtils
-import robosuite.macros as macros
 import cv2
-import sys
-import os
+
 sys.path.append(os.path.abspath("ZeroNVS"))
 from zero123gen import Zero123Generator
 
-class RobosuiteEnvZero(Env):
-    def __init__(self, env_name="Stack", camera_names=["agentview", "robot0_eye_in_hand"], env_id=0,
-    camera_height=32, camera_width=32, frame_stack=5, channels_first=True, observation_type="rgb_wrist",
-    guidance_scale=5, ddim_steps=10, diff_fps=0.1):
+class RobosuiteEnv(Env):
+    def __init__(self, env_name="PickPlaceCan", camera_names=["agentview", "robot0_eye_in_hand"], camera_height=32, camera_width=32, frame_stack=5, channels_first=True, observation_type="rgb_wrist"):
         super().__init__()
         self.channels_first = channels_first
         self.observation_type = observation_type
@@ -24,13 +20,12 @@ class RobosuiteEnvZero(Env):
                     "robot0_eef_pos",
                     "robot0_eef_quat",
                     "robot0_gripper_qpos",
-                    "robot0_joint_pos",
                     "object"
                 ]
             }
         }
-        self.env_id = env_id
         ObsUtils.initialize_obs_utils_with_obs_specs(obs_specs)
+        self.info = {}
         # Configure robomimic environment with both cameras
         self.env = EnvRobosuite(
             env_name=env_name,
@@ -56,21 +51,10 @@ class RobosuiteEnvZero(Env):
         self.render_mode = "rgb_array"
         self.frame_stack = frame_stack
         self.camera_names = camera_names
-        self.info = {}
+
         # Set observation space shape based on channels_first
-        if self.observation_type == "rgb_zero":
-            #Setup Zero123 Diffusion Model
-            device = "cuda"
-            config_path = "ZeroNVS/zeronvs_config.yaml"
-            ckpt_path = "ZeroNVS/finetuned2_zeronvs.ckpt"
-            precomputed_scale = 0.7
-            self.generator = Zero123Generator(config_path, ckpt_path, device, precomputed_scale)
-            self.guidance_scale = guidance_scale
-            self.ddim_steps = ddim_steps
-            self.frame_count = 0
-            self.diff_fps = diff_fps
-            self.zero_img = None
-            camera_width *= 2  #Width increase
+        if self.observation_type == "rgb_concat":
+            camera_width *= 2  # Double the width for concatenation
 
         if self.channels_first:
             img_shape = (3, camera_height, camera_width)
@@ -81,11 +65,14 @@ class RobosuiteEnvZero(Env):
             self.observation_space = spaces.Dict({
                 "rgb_wrist": spaces.Box(0, 255, shape=img_shape, dtype=np.uint8)
             })
-        elif self.observation_type == "rgb_zero":
-            #For number of
+        elif self.observation_type == "rgb_third":
+            self.observation_space = spaces.Dict({
+                "rgb_third": spaces.Box(0, 255, shape=img_shape, dtype=np.uint8)
+            })
+        elif self.observation_type == "rgb_concat":
             self.observation_space = spaces.Dict({
                 "rgb_wrist": spaces.Box(0, 255, shape=img_shape, dtype=np.uint8),
-                "rgb_zero": spaces.Box(0, 255, shape=img_shape, dtype=np.uint8)
+                "rgb_third": spaces.Box(0, 255, shape=img_shape, dtype=np.uint8)
             })
         else:
             raise ValueError(f"Invalid observation_type: {self.observation_type}")
@@ -95,9 +82,13 @@ class RobosuiteEnvZero(Env):
             low=-1.0, high=1.0, shape=(action_dim,), dtype=np.float32
         )
 
+        #Set render mode: 0 is 1st person, 1 is 3rd person
+        # self.render_mode = render_mode
+
     def step(self, action):
         obs, reward, terminated, info = self.env.step(action)
         self.info = info
+        #Save end effector data
         self.info['robot0_eef_quat'] = obs['robot0_eef_quat']
         self.info['robot0_eef_pos'] = obs['robot0_eef_pos']
         truncated = info.get("TimeLimit.truncated", False)
@@ -107,9 +98,9 @@ class RobosuiteEnvZero(Env):
 
     def reset(self, seed=None, options=None):
         obs = self.env.reset()
+        #Save end effector data
         self.info['robot0_eef_quat'] = obs['robot0_eef_quat']
         self.info['robot0_eef_pos'] = obs['robot0_eef_pos']
-        self.frame_count = 0
         processed_obs = self._process_observations(obs)
         self._last_obs = processed_obs
         return processed_obs, {}
@@ -121,15 +112,18 @@ class RobosuiteEnvZero(Env):
         pitch = np.arcsin(sinp)
         return 90-pitch*180.0/np.pi
 
-    def quaternion_to_azimuth(self, q):
-        w, x, y, z = q
-        tanp = 2.0 * (w * y - z * x)
-        azm = np.arctan2(2*(w*z+x*y), 1-2*(y*y + z*z))
-        return azm*180.0/np.pi
-
     def _process_observations(self, obs):
         image_keys = [k for k in obs.keys() if 'image' in k.lower()]
-        fallback_shape = self.observation_space['rgb_wrist'].shape
+
+        if self.observation_type == "rgb_wrist":
+            fallback_shape = self.observation_space['rgb_wrist'].shape
+        elif self.observation_type == "rgb_third":
+            fallback_shape = self.observation_space['rgb_third'].shape
+        elif self.observation_type == "rgb_concat":
+            fallback_shape = self.observation_space['rgb_third'].shape
+        else:
+            raise ValueError(f"Invalid observation_type: {self.observation_type}")
+
         fallback = np.zeros(fallback_shape, dtype=np.uint8)
 
         def convert_img(img):
@@ -153,74 +147,36 @@ class RobosuiteEnvZero(Env):
                 return arr
 
         wrist_img = convert_img(obs.get("robot0_eye_in_hand_image", None))
-        # third_img = convert_img(obs.get("agentview_image", None))
-
-        if self.observation_type == "rgb_zero":
-            if self.frame_count%(int(1/self.diff_fps))==0:
-                img = self.generator.process_image(wrist_img)
-                def_elv = self.quaternion_to_elevation(obs["robot0_eef_quat"]) #Get actual elevation angle
-                def_azm = self.quaternion_to_azimuth(obs["robot0_eef_quat"])
-                def_cam_dist = obs['robot0_eef_pos'][2]*0.8
-                gen_elv = 45
-                gen_azm = [170]
-                gen_cam_dist = 1.2
-
-                #Note that elv is the actual camera elevation and self.gen_elv is the one to be geneated
-                zero_latent = self.generator.generate_latents(img, gen_azm=gen_azm, gen_elv=gen_elv, gen_camera_distance=gen_cam_dist, default_elv=def_elv, default_azm=def_azm, scale=self.guidance_scale, default_camera_distance=def_cam_dist, ddim_steps=self.ddim_steps)
-                self.zero_img = self.generator.decode_latents(zero_latent)[0]
-
-                # #Just change for generation
-                # filename = f"data/run_{self.env_id}_{self.frame_count}_orig_img.npy"
-                # orig_img = self.generator.process_image(wrist_img)
-                # with open(filename, 'wb') as f: np.save(f, orig_img.cpu().numpy())
-                #
-                # filename = f"data/run_{self.env_id}_{self.frame_count}_orig_elevations.npy"
-                # orig_elevations = self.quaternion_to_elevation(obs["robot0_eef_quat"]) #Get actual elevation angle
-                # with open(filename, 'wb') as f: np.save(f, orig_elevations)
-                #
-                # filename = f"data/run_{self.env_id}_{self.frame_count}_orig_azimuths.npy"
-                # orig_azimuths = self.quaternion_to_azimuth(obs["robot0_eef_quat"])
-                # with open(filename, 'wb') as f: np.save(f, orig_azimuths)
-                #
-                # filename = f"data/run_{self.env_id}_{self.frame_count}_orig_cam_dists.npy"
-                # original_cam_dist = obs['robot0_eef_pos'][2]*0.8 #Using z axis
-                # with open(filename, 'wb') as f: np.save(f, original_cam_dist)
-                #
-                # filename = f"data/run_{self.env_id}_{self.frame_count}_ref_img.npy"
-                # ref_img = self.generator.process_image(third_img)
-                # with open(filename, 'wb') as f: np.save(f, ref_img.cpu().numpy())
-                #
-                # #Can be directly used later
-                # ref_elevations = 45
-                # ref_azimuths = 180
-                # ref_cam_dist = 1.2 #Considering fixed distance camera
-            self.frame_count += 1
+        third_img = convert_img(obs.get("agentview_image", None))
 
         if self.observation_type == "rgb_wrist":
             return {"rgb_wrist": wrist_img}
-        elif self.observation_type == "rgb_zero":
-            if wrist_img is None or self.zero_img is None:
-                raise ValueError("Missing wrist or zero123 view for rgb_zero.")
-            obsdict = {"rgb_wrist": wrist_img}
-            obsdict[f"rgb_zero"] = self.zero_img
-            return obsdict
+        elif self.observation_type == "rgb_third":
+            return {"rgb_third": third_img}
+        elif self.observation_type == "rgb_concat":
+            if wrist_img is None or third_img is None:
+                raise ValueError("Missing wrist or third-person view for rgb_concat.")
+            return {"rgb_wrist": wrist_img, "rgb_third": third_img}
         else:
             raise ValueError(f"Invalid observation_type: {self.observation_type}")
 
     def render(self, mode="rgb_array"):
         if hasattr(self, '_last_obs') and self._last_obs is not None:
-            if self.observation_type == "rgb_zero":
+            if self.observation_type == "rgb_concat":
                 wrist_img = self._last_obs.get("rgb_wrist", None)
-                if wrist_img is not None:
-                    zero_img = self._last_obs.get(f"rgb_zero", None)
-                    if zero_img is not None:
-                        if self.channels_first:
-                            concatenated_img = np.concatenate((wrist_img, zero_img), axis=2)  # Concatenate along width
-                        else:
-                            concatenated_img = np.concatenate((wrist_img, zero_img), axis=1)  # Concatenate along width
+                third_img = self._last_obs.get("rgb_third", None)
+                if wrist_img is not None and third_img is not None:
+                    if self.channels_first:
+                        concatenated_img = np.concatenate((wrist_img, third_img), axis=2)  # Concatenate along width
+                    else:
+                        concatenated_img = np.concatenate((wrist_img, third_img), axis=1)  # Concatenate along width
                     return concatenated_img.transpose(1, 2, 0) if self.channels_first else concatenated_img
             elif self.observation_type == "rgb_wrist":
                 img = self._last_obs.get("rgb_wrist", None)
+                if img is not None:
+                    return img.transpose(1, 2, 0) if self.channels_first else img
+            elif self.observation_type == "rgb_third":
+                img = self._last_obs.get("rgb_third", None)
                 if img is not None:
                     return img.transpose(1, 2, 0) if self.channels_first else img
 
@@ -232,3 +188,4 @@ class RobosuiteEnvZero(Env):
     def close(self):
         if hasattr(self.env, 'close'):
             self.env.close()
+dat

@@ -173,4 +173,6 @@ mlartifacts
 examples/models
 session_*
 bin/
+data/
+*.mp4
 robomimic/

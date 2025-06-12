@@ -1,4 +1,7 @@
 # sheeprl/envs/robosuite.py
+
+##DOES NOT WORK
+
 from gymnasium import Env, spaces
 from robomimic.envs.env_robosuite import EnvRobosuite
 import numpy as np
@@ -13,7 +16,7 @@ from zero123gen import Zero123Generator
 class RobosuiteEnvZerowMask(Env):
     def __init__(self, env_name="PickPlaceCan", camera_names=["agentview", "robot0_eye_in_hand"],
     camera_height=32, camera_width=32, frame_stack=5, channels_first=True, observation_type="rgb_wrist",
-    azm_degs = [20], guidance_scale=7.5, ddim_steps=20):
+    gen_azm = [20], guidance_scale=7.5, ddim_steps=20, default_camera_distance=1.0):
         super().__init__()
         self.channels_first = channels_first
         self.observation_type = observation_type
@@ -65,10 +68,11 @@ class RobosuiteEnvZerowMask(Env):
             ckpt_path = "ZeroNVS/zeronvs.ckpt"
             precomputed_scale = 1.2
             self.generator = Zero123Generator(config_path, ckpt_path, device, precomputed_scale)
-            self.azm_degs = azm_degs
+            self.gen_azm = gen_azm
             self.guidance_scale = guidance_scale
             self.ddim_steps = ddim_steps
             self.started = False
+            self.default_camera_distance = default_camera_distance
 
         if self.channels_first:
             img_shape = (3, camera_height, camera_width)
@@ -149,10 +153,10 @@ class RobosuiteEnvZerowMask(Env):
             #For first step increase ddimsteps
             img = self.generator.process_image(third_img)
             if not self.started:
-                zero_latent = self.generator.generate_latents_with_mask(img, azimuths_deg=self.azm_degs, default_elv=45.0, scale=self.guidance_scale, default_camera_distance=1.5, ddim_steps=100)
+                zero_latent = self.generator.generate_latents_with_mask(img, azimuths_deg=self.azm_degs, default_elv=45.0, scale=self.guidance_scale, default_camera_distance=self.default_camera_distance, ddim_steps=100)
                 self.started = True
             else:
-                zero_latent = self.generator.generate_latents_with_mask(img, azimuths_deg=self.azm_degs, default_elv=45.0, scale=self.guidance_scale, default_camera_distance=1.5, ddim_steps=self.ddim_steps)
+                zero_latent = self.generator.generate_latents_with_mask(img, azimuths_deg=self.azm_degs, default_elv=45.0, scale=self.guidance_scale, default_camera_distance=self.default_camera_distance, ddim_steps=self.ddim_steps)
             zero_imgs = self.generator.decode_latents(zero_latent)
             zero_img = zero_imgs[0]
 

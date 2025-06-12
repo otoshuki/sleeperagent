@@ -22,7 +22,7 @@ class RobosuiteEnv(Env):
             }
         }
         ObsUtils.initialize_obs_utils_with_obs_specs(obs_specs)
-
+        self.info = {}
         # Configure robomimic environment with both cameras
         self.env = EnvRobosuite(
             env_name=env_name,
@@ -84,16 +84,30 @@ class RobosuiteEnv(Env):
 
     def step(self, action):
         obs, reward, terminated, info = self.env.step(action)
+        self.info = info
+        #Save end effector data
+        self.info['robot0_eef_quat'] = obs['robot0_eef_quat']
+        self.info['robot0_eef_pos'] = obs['robot0_eef_pos']
         truncated = info.get("TimeLimit.truncated", False)
         processed_obs = self._process_observations(obs)
         self._last_obs = processed_obs
-        return processed_obs, reward, terminated, truncated, info
+        return processed_obs, reward, terminated, truncated, self.info
 
     def reset(self, seed=None, options=None):
         obs = self.env.reset()
+        #Save end effector data
+        self.info['robot0_eef_quat'] = obs['robot0_eef_quat']
+        self.info['robot0_eef_pos'] = obs['robot0_eef_pos']
         processed_obs = self._process_observations(obs)
         self._last_obs = processed_obs
         return processed_obs, {}
+
+    def quaternion_to_elevation(self, q):
+        w, x, y, z = q
+        sinp = 2.0 * (w * y - z * x)
+        sinp = np.clip(sinp, -1.0, 1.0)
+        pitch = np.arcsin(sinp)
+        return 90-pitch*180.0/np.pi
 
     def _process_observations(self, obs):
         image_keys = [k for k in obs.keys() if 'image' in k.lower()]
