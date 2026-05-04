@@ -1,3 +1,5 @@
+# SleeperAgent Project designed under SheepRL framework
+
 ### Updates
 * Added the full pip list combining sheeprl and zeronvs to work together.
 * Also ended environment.yaml file. Create the conda env using `conda env create -f environment.yaml`
